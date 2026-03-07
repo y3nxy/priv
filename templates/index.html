@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discord Hunter V2.4 Web</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        :root {
+            --bg: #0e0e10;
+            --card: #18181b;
+            --primary: #9147ff;
+            --success: #00ff7f;
+            --error: #ff4d4d;
+            --border: #2f2f35;
+            --text: #efeff1;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', -apple-system, sans-serif;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            padding: 40px 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background: var(--card);
+            padding: 30px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 15px;
+        }
+
+        h1 { color: var(--primary); margin: 0; font-size: 1.5rem; letter-spacing: 1px; }
+
+        .status-tag {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            background: #26262c;
+        }
+
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .stat-card {
+            background: #000;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+
+        .stat-val { display: block; font-size: 1.2rem; font-weight: bold; color: var(--primary); }
+        .stat-label { font-size: 0.7rem; opacity: 0.6; text-transform: uppercase; }
+
+        label { display: block; margin-bottom: 8px; font-size: 0.9rem; font-weight: 600; }
+
+        textarea, input {
+            width: 100%;
+            background: #000;
+            border: 1px solid var(--border);
+            color: white;
+            padding: 12px;
+            margin-bottom: 20px;
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-family: 'Fira Code', monospace;
+        }
+
+        .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+
+        button {
+            padding: 15px;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+            text-transform: uppercase;
+        }
+
+        .btn-start { background: var(--primary); color: white; }
+        .btn-stop { background: var(--error); color: white; }
+        button:hover { opacity: 0.8; transform: translateY(-1px); }
+
+        #console {
+            height: 300px;
+            background: #000;
+            margin-top: 25px;
+            padding: 15px;
+            overflow-y: auto;
+            font-family: 'Fira Code', monospace;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            font-size: 0.85rem;
+        }
+
+        .log-entry { margin-bottom: 6px; border-left: 2px solid transparent; padding-left: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>HUNTER V2.4 <span style="opacity: 0.5;">WEB</span></h1>
+        <div id="status" class="status-tag">IDLE</div>
+    </div>
+
+    <div class="stats-bar">
+        <div class="stat-card">
+            <span id="stat-checked" class="stat-val">0</span>
+            <span class="stat-label">Checked</span>
+        </div>
+        <div class="stat-card">
+            <span id="stat-hits" class="stat-val" style="color: var(--success)">0</span>
+            <span class="stat-label">Hits</span>
+        </div>
+        <div class="stat-card">
+            <span id="stat-errors" class="stat-val" style="color: var(--error)">0</span>
+            <span class="stat-label">Errors</span>
+        </div>
+    </div>
+    
+    <label>Discord Tokens (One per line)</label>
+    <textarea id="tokens" rows="5" placeholder="PASTE TOKENS HERE..."></textarea>
+    
+    <div style="display: flex; gap: 15px;">
+        <div style="flex: 1;">
+            <label>Name Length</label>
+            <input type="number" id="length" value="4">
+        </div>
+        <div style="flex: 1;">
+            <label>Delay (Seconds)</label>
+            <input type="number" id="delay" value="1.0" step="0.1">
+        </div>
+    </div>
+    
+    <div class="actions">
+        <button class="btn-start" onclick="startHunt()">Start Session</button>
+        <button class="btn-stop" onclick="stopHunt()">Stop Hunter</button>
+    </div>
+
+    <div id="console"></div>
+</div>
+
+<script>
+    const socket = io();
+    const consoleDiv = document.getElementById('console');
+    const statusTag = document.getElementById('status');
+    
+    let checkedCount = 0;
+    let hitCount = 0;
+    let errorCount = 0;
+
+    function startHunt() {
+        const data = {
+            tokens: document.getElementById('tokens').value,
+            delay: document.getElementById('delay').value,
+            length: document.getElementById('length').value
+        };
+        if(!data.tokens) return alert("Please enter at least one token!");
+        
+        socket.emit('start_hunt', data);
+        statusTag.innerText = "RUNNING";
+        statusTag.style.background = "#9147ff";
+        statusTag.style.color = "white";
+    }
+
+    function stopHunt() {
+        socket.emit('stop_hunt');
+        statusTag.innerText = "STOPPING...";
+        statusTag.style.background = "#ff4d4d";
+    }
+
+    socket.on('log', function(data) {
+        const div = document.createElement('div');
+        div.className = 'log-entry';
+        div.style.color = data.color || '#fff';
+        
+        // Update Stats based on log message
+        if(data.msg.includes("[+] AVAILABLE")) {
+            hitCount++;
+            document.getElementById('stat-hits').innerText = hitCount;
+        } else if(data.msg.includes("[-] TAKEN")) {
+            checkedCount++;
+            document.getElementById('stat-checked').innerText = checkedCount;
+        } else if(data.msg.includes("Error") || data.msg.includes("Dead")) {
+            errorCount++;
+            document.getElementById('stat-errors').innerText = errorCount;
+        } else if(data.msg.includes("Stopped")) {
+            statusTag.innerText = "IDLE";
+            statusTag.style.background = "#26262c";
+        }
+
+        div.innerText = `[${new Date().toLocaleTimeString()}] ${data.msg}`;
+        consoleDiv.appendChild(div);
+        consoleDiv.scrollTop = consoleDiv.scrollHeight;
+    });
+</script>
+
+</body>
+</html>
