@@ -1,6 +1,7 @@
 [build]
   publish = "."
   functions = "functions"
+  command = "pip install -r requirements.txt"
 
 [functions]
   python_version = "3.8"
