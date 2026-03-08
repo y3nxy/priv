@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discord Hunter V2.4 | Y3NXY</title>
+    <style>
+        :root { --primary: #5865F2; --bg: #0f0f13; --card: #1a1a20; --text: #ffffff; --accent: #00fa9a; }
+        body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; height: 100vh; overflow: hidden; }
+        
+        /* Sidebar / Config */
+        .sidebar { width: 350px; background: var(--card); padding: 25px; border-right: 1px solid #2d2d3a; display: flex; flex-direction: column; gap: 20px; }
+        .logo { font-size: 1.5rem; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; }
+        
+        .input-group { display: flex; flex-direction: column; gap: 8px; }
+        label { font-size: 0.8rem; color: #8e8e93; font-weight: 600; text-transform: uppercase; }
+        input, select { background: #0f0f13; border: 1px solid #2d2d3a; padding: 12px; border-radius: 8px; color: white; transition: 0.3s; }
+        input:focus { border-color: var(--primary); outline: none; }
+
+        .btn { padding: 15px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; transition: 0.3s; text-transform: uppercase; }
+        .btn-start { background: var(--primary); color: white; }
+        .btn-start:hover { background: #4752c4; transform: translateY(-2px); }
+        .btn-stop { background: #ed4245; color: white; display: none; }
+
+        /* Main Content */
+        .main { flex: 1; padding: 30px; display: flex; flex-direction: column; gap: 20px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+        .stat-card { background: var(--card); padding: 20px; border-radius: 12px; text-align: center; border-bottom: 3px solid var(--primary); }
+        .stat-val { font-size: 2rem; font-weight: 800; display: block; }
+        .stat-label { color: #8e8e93; font-size: 0.8rem; }
+
+        /* Console */
+        .console { flex: 1; background: #050507; border-radius: 12px; padding: 20px; font-family: 'Consolas', monospace; overflow-y: auto; border: 1px solid #2d2d3a; }
+        .log-line { margin-bottom: 5px; font-size: 0.9rem; border-left: 3px solid #2d2d3a; padding-left: 10px; }
+        .avail { color: var(--accent); border-color: var(--accent); font-weight: bold; background: rgba(0, 250, 154, 0.05); }
+        .sys { color: #5865F2; }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <div class="logo">Hunter V2.4</div>
+    
+    <div class="input-group">
+        <label>Discord Token</label>
+        <input type="password" id="token" placeholder="mfa.xxxxxx">
+    </div>
+
+    <div class="input-group">
+        <label>Webhook URL (Optional)</label>
+        <input type="text" id="webhook" placeholder="https://discord.com/api/webhooks/...">
+    </div>
+
+    <div class="input-group">
+        <label>Mode</label>
+        <select id="mode">
+            <option value="2">4-Char Mixed (a1b2)</option>
+            <option value="3">4-Letter Only (abcd)</option>
+            <option value="4">3-Char Turbo (a1b)</option>
+        </select>
+    </div>
+
+    <div class="input-group">
+        <label>Delay (Seconds)</label>
+        <input type="number" id="delay" value="1.5" step="0.1">
+    </div>
+
+    <button class="btn btn-start" id="startBtn" onclick="start()">Start Hunting</button>
+    <button class="btn btn-stop" id="stopBtn" onclick="stop()">Stop Machine</button>
+</div>
+
+<div class="main">
+    <div class="stats-grid">
+        <div class="stat-card"><span class="stat-val" id="checked">0</span><span class="stat-label">Checked</span></div>
+        <div class="stat-card" style="border-color: var(--accent);"><span class="stat-val" id="available">0</span><span class="stat-label">Available</span></div>
+        <div class="stat-card" style="border-color: #ed4245;"><span class="stat-val" id="taken">0</span><span class="stat-label">Taken</span></div>
+        <div class="stat-card"><span class="stat-val" id="cpm">0</span><span class="stat-label">CPM</span></div>
+    </div>
+
+    <div class="console" id="log">
+        <div class="log-line sys">[SYSTEM] Ready to hunt. Enter token and press Start.</div>
+    </div>
+</div>
+
+<script>
+    let stats = { checked: 0, available: 0, taken: 0 };
+    let running = false;
+    let startTime;
+
+    function addLog(msg, cls = '') {
+        const log = document.getElementById('log');
+        const div = document.createElement('div');
+        div.className = `log-line ${cls}`;
+        div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        log.prepend(div);
+    }
+
+    function stop() {
+        running = false;
+        document.getElementById('startBtn').style.display = 'block';
+        document.getElementById('stopBtn').style.display = 'none';
+        addLog("[SYSTEM] Stopping...", 'sys');
+    }
+
+    async function start() {
+        if(!document.getElementById('token').value) return alert("Please enter a token!");
+        
+        running = true;
+        startTime = Date.now();
+        document.getElementById('startBtn').style.display = 'none';
+        document.getElementById('stopBtn').style.display = 'block';
+        addLog("[SYSTEM] Initializing Netlify Worker...", 'sys');
+
+        runLoop();
+    }
+
+    async function runLoop() {
+        const config = {
+            token: document.getElementById('token').value,
+            mode: document.getElementById('mode').value,
+            webhook: document.getElementById('webhook').value
+        };
+
+        while(running) {
+            try {
+                // TALK TO NETLIFY FUNCTION
+                const resp = await fetch('/.netlify/functions/checker', {
+                    method: 'POST',
+                    body: JSON.stringify(config)
+                });
+                
+                const data = await resp.json();
+
+                if(data.status === 200) {
+                    stats.checked++;
+                    if(data.taken === false) {
+                        stats.available++;
+                        addLog(`AVAILABLE: ${data.username}`, 'avail');
+                    } else {
+                        stats.taken++;
+                        addLog(`Taken: ${data.username}`);
+                    }
+                } else if(data.status === 429) {
+                    addLog("Rate Limited! Sleeping 5s...", 'sys');
+                    await new Promise(r => setTimeout(r, 5000));
+                } else {
+                    addLog(`Error: ${data.status}`, 'sys');
+                }
+
+                updateUI();
+            } catch (e) {
+                addLog("Connection Error. Retrying...", 'sys');
+            }
+
+            const sleepTime = parseFloat(document.getElementById('delay').value) * 1000;
+            await new Promise(r => setTimeout(r, sleepTime));
+        }
+    }
+
+    function updateUI() {
+        document.getElementById('checked').innerText = stats.checked;
+        document.getElementById('available').innerText = stats.available;
+        document.getElementById('taken').innerText = stats.taken;
+        
+        let mins = (Date.now() - startTime) / 60000;
+        document.getElementById('cpm').innerText = Math.floor(stats.checked / mins) || 0;
+    }
+</script>
+
+</body>
+</html>
