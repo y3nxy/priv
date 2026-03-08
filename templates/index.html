@@ -2,221 +2,165 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Discord Hunter V2.4 Web</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <title>Discord Hunter V2.4 | Y3NXY</title>
     <style>
-        :root {
-            --bg: #0e0e10;
-            --card: #18181b;
-            --primary: #9147ff;
-            --success: #00ff7f;
-            --error: #ff4d4d;
-            --border: #2f2f35;
-            --text: #efeff1;
+        :root { --bg: #000; --panel: #0a0a0a; --border: #1a1a1a; --accent: #fff; --dim: #555; --red: #ff3333; }
+        * { box-sizing: border-box; transition: all 0.15s ease; }
+        body { background: var(--bg); color: var(--accent); font-family: 'Inter', -apple-system, sans-serif; margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        
+        header { padding: 20px 40px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--panel); }
+        header h1 { font-size: 14px; letter-spacing: 2px; margin: 0; font-weight: 900; }
+        .sub-h { font-size: 10px; color: var(--dim); text-transform: uppercase; font-weight: 700; letter-spacing: 1px; }
+
+        main { display: flex; flex: 1; overflow: hidden; }
+        
+        /* Sidebar Menu */
+        .sidebar { width: 380px; border-right: 1px solid var(--border); padding: 25px; overflow-y: auto; background: var(--panel); display: flex; flex-direction: column; }
+        
+        /* Console Area */
+        .console-side { flex: 1; display: flex; flex-direction: column; padding: 20px; background: #000; }
+
+        /* Stats Grid */
+        .stats-bar { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 25px; }
+        .stat-card { border: 1px solid var(--border); padding: 15px; text-align: center; border-radius: 4px; background: #050505; }
+        .stat-val { font-size: 22px; font-weight: 800; display: block; font-family: 'Courier New', monospace; }
+        .stat-lbl { font-size: 9px; color: var(--dim); text-transform: uppercase; margin-top: 5px; font-weight: 700; }
+
+        /* Form Elements */
+        .section-title { font-size: 10px; font-weight: 800; text-transform: uppercase; margin: 20px 0 12px 0; color: var(--dim); letter-spacing: 1px; border-left: 2px solid #fff; padding-left: 8px; }
+        .input-box { margin-bottom: 15px; }
+        label { display: block; font-size: 9px; color: var(--text-dim); margin-bottom: 6px; text-transform: uppercase; font-weight: 700; }
+        
+        input, select { 
+            width: 100%; background: #000; border: 1px solid var(--border); color: #fff; 
+            padding: 12px; font-size: 12px; border-radius: 4px; font-family: monospace; outline: none;
         }
+        input:focus { border-color: #444; }
+        input::placeholder { color: #333; }
+        
+        /* Action Buttons */
+        .btn-main { background: #fff; color: #000; width: 100%; padding: 15px; font-size: 12px; font-weight: 900; text-transform: uppercase; cursor: pointer; border-radius: 4px; border: none; margin-top: 10px; letter-spacing: 1px; }
+        .btn-stop { background: var(--red); color: #fff; width: 100%; padding: 15px; font-size: 12px; font-weight: 900; text-transform: uppercase; cursor: pointer; border-radius: 4px; border: none; margin-top: 10px; display: none; }
+        .btn-sec { background: transparent; color: #fff; border: 1px solid var(--border); width: 100%; padding: 10px; font-size: 10px; text-transform: uppercase; cursor: pointer; border-radius: 4px; margin-top: 8px; font-weight: 700; }
+        
+        button:hover { opacity: 0.8; }
 
-        body {
-            background-color: var(--bg);
-            color: var(--text);
-            font-family: 'Inter', -apple-system, sans-serif;
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            padding: 40px 20px;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 800px;
-            background: var(--card);
-            padding: 30px;
-            border-radius: 12px;
-            border: 1px solid var(--border);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 25px;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 15px;
-        }
-
-        h1 { color: var(--primary); margin: 0; font-size: 1.5rem; letter-spacing: 1px; }
-
-        .status-tag {
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: bold;
-            background: #26262c;
-        }
-
-        .stats-bar {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            margin-bottom: 25px;
-        }
-
-        .stat-card {
-            background: #000;
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-            border: 1px solid var(--border);
-        }
-
-        .stat-val { display: block; font-size: 1.2rem; font-weight: bold; color: var(--primary); }
-        .stat-label { font-size: 0.7rem; opacity: 0.6; text-transform: uppercase; }
-
-        label { display: block; margin-bottom: 8px; font-size: 0.9rem; font-weight: 600; }
-
-        textarea, input {
-            width: 100%;
-            background: #000;
-            border: 1px solid var(--border);
-            color: white;
-            padding: 12px;
-            margin-bottom: 20px;
-            border-radius: 6px;
-            box-sizing: border-box;
-            font-family: 'Fira Code', monospace;
-        }
-
-        .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-
-        button {
-            padding: 15px;
-            border: none;
-            border-radius: 6px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: 0.2s;
-            text-transform: uppercase;
-        }
-
-        .btn-start { background: var(--primary); color: white; }
-        .btn-stop { background: var(--error); color: white; }
-        button:hover { opacity: 0.8; transform: translateY(-1px); }
-
-        #console {
-            height: 300px;
-            background: #000;
-            margin-top: 25px;
-            padding: 15px;
-            overflow-y: auto;
-            font-family: 'Fira Code', monospace;
-            border-radius: 6px;
-            border: 1px solid var(--border);
-            font-size: 0.85rem;
-        }
-
-        .log-entry { margin-bottom: 6px; border-left: 2px solid transparent; padding-left: 10px; }
+        /* Terminal Output */
+        .terminal-header { font-size: 10px; color: var(--dim); text-transform: uppercase; margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px; display: flex; justify-content: space-between; }
+        #log { flex: 1; font-family: 'Courier New', monospace; font-size: 12px; overflow-y: auto; display: flex; flex-direction: column-reverse; color: #555; }
+        .log-line { padding: 4px 0; border-bottom: 1px solid #050505; white-space: pre-wrap; }
+        .avail { color: #fff; font-weight: bold; background: rgba(255,255,255,0.05); }
+        .sys { color: #888; }
+        
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #222; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="header">
-        <h1>HUNTER V2.4 <span style="opacity: 0.5;">WEB</span></h1>
-        <div id="status" class="status-tag">IDLE</div>
+<header>
+    <div>
+        <h1>Discord Hunter V2.4</h1>
+        <div class="sub-h">Advanced Username Availability Checker</div>
     </div>
+    <div class="sub-h">MADE BY Y3NXY</div>
+</header>
 
-    <div class="stats-bar">
-        <div class="stat-card">
-            <span id="stat-checked" class="stat-val">0</span>
-            <span class="stat-label">Checked</span>
+<main>
+    <section class="sidebar">
+        <div class="stats-bar">
+            <div class="stat-card"><span class="stat-val" id="checked">0</span><span class="stat-lbl">Checked</span></div>
+            <div class="stat-card"><span class="stat-val" id="available">0</span><span class="stat-lbl">Available</span></div>
+            <div class="stat-card"><span class="stat-val" id="taken">0</span><span class="stat-lbl">Taken</span></div>
+            <div class="stat-card"><span class="stat-val" id="cpm">0</span><span class="stat-lbl">Checks/Min</span></div>
         </div>
-        <div class="stat-card">
-            <span id="stat-hits" class="stat-val" style="color: var(--success)">0</span>
-            <span class="stat-label">Hits</span>
-        </div>
-        <div class="stat-card">
-            <span id="stat-errors" class="stat-val" style="color: var(--error)">0</span>
-            <span class="stat-label">Errors</span>
-        </div>
-    </div>
-    
-    <label>Discord Tokens (One per line)</label>
-    <textarea id="tokens" rows="5" placeholder="PASTE TOKENS HERE..."></textarea>
-    
-    <div style="display: flex; gap: 15px;">
-        <div style="flex: 1;">
-            <label>Name Length</label>
-            <input type="number" id="length" value="4">
-        </div>
-        <div style="flex: 1;">
-            <label>Delay (Seconds)</label>
-            <input type="number" id="delay" value="1.0" step="0.1">
-        </div>
-    </div>
-    
-    <div class="actions">
-        <button class="btn-start" onclick="startHunt()">Start Session</button>
-        <button class="btn-stop" onclick="stopHunt()">Stop Hunter</button>
-    </div>
 
-    <div id="console"></div>
-</div>
+        <div class="section-title">🔐 Authentication</div>
+        <div class="input-box">
+            <label>Single Token</label>
+            <input type="text" id="token" placeholder="mfa.xxxxxxxx...">
+        </div>
+        <div class="input-box">
+            <label>Webhook URL</label>
+            <input type="text" id="webhook" placeholder="https://discord.com/api/webhooks/...">
+        </div>
+
+        <div class="section-title">⚙️ Configuration</div>
+        <div class="input-box">
+            <label>Delay (seconds)</label>
+            <input type="number" id="delay" value="1.0" step="0.1" placeholder="1.0">
+        </div>
+        <div class="input-box">
+            <label>Mode</label>
+            <select id="mode">
+                <option value="1">Username List (usernames.txt)</option>
+                <option value="2">4-Char Mixed</option>
+                <option value="3">4-Letter Only</option>
+                <option value="4">3-Char Turbo</option>
+            </select>
+        </div>
+
+        <button class="btn-main" id="startBtn" onclick="start()">START CHECKING</button>
+        <button class="btn-stop" id="stopBtn" onclick="stop()">Stop</button>
+        <button class="btn-sec" onclick="testWebhook()">Test Webhook</button>
+    </section>
+
+    <section class="console-side">
+        <div class="terminal-header">
+            <span>📋 Activity Log</span>
+            <span id="status-tag" style="color:#444">IDLE</span>
+        </div>
+        <div id="log">
+            <div class="log-line sys">[*] System ready. Configure settings and press START CHECKING.</div>
+        </div>
+    </section>
+</main>
 
 <script>
-    const socket = io();
-    const consoleDiv = document.getElementById('console');
-    const statusTag = document.getElementById('status');
-    
-    let checkedCount = 0;
-    let hitCount = 0;
-    let errorCount = 0;
+    function testWebhook() {
+        const url = document.getElementById('webhook').value;
+        fetch('/test_webhook', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: url}) });
+    }
 
-    function startHunt() {
+    function start() {
         const data = {
-            tokens: document.getElementById('tokens').value,
+            token: document.getElementById('token').value,
+            webhook: document.getElementById('webhook').value,
             delay: document.getElementById('delay').value,
-            length: document.getElementById('length').value
+            mode: document.getElementById('mode').value
         };
-        if(!data.tokens) return alert("Please enter at least one token!");
         
-        socket.emit('start_hunt', data);
-        statusTag.innerText = "RUNNING";
-        statusTag.style.background = "#9147ff";
-        statusTag.style.color = "white";
+        if(!data.token) return alert("Discord Token required");
+
+        document.getElementById('startBtn').style.display = 'none';
+        document.getElementById('stopBtn').style.display = 'block';
+        document.getElementById('status-tag').innerText = "RUNNING";
+        document.getElementById('status-tag').style.color = "#fff";
+
+        fetch('/start', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+        setInterval(refreshStats, 800);
     }
 
-    function stopHunt() {
-        socket.emit('stop_hunt');
-        statusTag.innerText = "STOPPING...";
-        statusTag.style.background = "#ff4d4d";
+    function stop() {
+        location.reload(); 
     }
 
-    socket.on('log', function(data) {
-        const div = document.createElement('div');
-        div.className = 'log-entry';
-        div.style.color = data.color || '#fff';
-        
-        // Update Stats based on log message
-        if(data.msg.includes("[+] AVAILABLE")) {
-            hitCount++;
-            document.getElementById('stat-hits').innerText = hitCount;
-        } else if(data.msg.includes("[-] TAKEN")) {
-            checkedCount++;
-            document.getElementById('stat-checked').innerText = checkedCount;
-        } else if(data.msg.includes("Error") || data.msg.includes("Dead")) {
-            errorCount++;
-            document.getElementById('stat-errors').innerText = errorCount;
-        } else if(data.msg.includes("Stopped")) {
-            statusTag.innerText = "IDLE";
-            statusTag.style.background = "#26262c";
-        }
-
-        div.innerText = `[${new Date().toLocaleTimeString()}] ${data.msg}`;
-        consoleDiv.appendChild(div);
-        consoleDiv.scrollTop = consoleDiv.scrollHeight;
-    });
+    function refreshStats() {
+        fetch('/stats').then(res => res.json()).then(data => {
+            document.getElementById('checked').innerText = data.stats.checked;
+            document.getElementById('available').innerText = data.stats.available;
+            document.getElementById('taken').innerText = data.stats.taken;
+            document.getElementById('cpm').innerText = data.stats.cpm;
+            
+            const logDiv = document.getElementById('log');
+            data.logs.forEach(msg => {
+                const div = document.createElement('div');
+                div.className = msg.includes('AVAILABLE') ? 'log-line avail' : 'log-line';
+                div.innerText = msg;
+                logDiv.prepend(div);
+            });
+        });
+    }
 </script>
-
 </body>
 </html>
